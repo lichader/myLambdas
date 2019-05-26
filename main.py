@@ -1,47 +1,72 @@
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
-import boto3
-import uuid
-import sys
-sys.setrecursionlimit(100000)
+from boto3.dynamodb.conditions import Key, Attr
+import uuid, os, sys, requests, json, re, boto3
 
-req = Request("https://www.ptwxz.com/html/9/9102/")
-req.add_header("User-Agent", "Magic Browser")
+chatId = os.environ['TELEGRAM_CHAT_ID']
+token = os.environ['TELEGRAM_TOKEN']
 
-htmlContent = urlopen(req).read()
+def getChapterLists(url):
+    req = Request(url)
+    req.add_header("User-Agent", "Magic Browser")
+    htmlContent = urlopen(req).read()
+    soup = BeautifulSoup(htmlContent, "html.parser")
+    allLi = soup.select("li")
 
-soup = BeautifulSoup(htmlContent, "html.parser")
+    chapters = set()
 
-print(soup.title)
+    for eachLi in allLi:
+        if (eachLi.a is not None):
+            chapters.add(eachLi.a['href'])
+    return chapters
 
-allLi = soup.select("li")
+def sendTelegramMessage(text):
+    requestBody = {
+        "chat_id": chatId,
+        "text": text
+    }
+    print("Send message: ", text)
+    url = "https://api.telegram.org/bot{}/sendMessage".format(token)
+    r = requests.post(url, json=requestBody)
+    print(r.status_code)
 
-chapters = set()
+def startWork(event, context):
+    sys.setrecursionlimit(100000)
 
-for eachLi in allLi:
-    if (eachLi.a is not None):
-        chapters.add(eachLi.a['href'])
+    dynamodb = boto3.resource("dynamodb")
 
-print(chapters)
+    table = dynamodb.Table("Things")
 
-dynamodb = boto3.resource("dynamodb")
+    response = table.query(
+        KeyConditionExpression=Key('Type').eq('Novel')
+    )
+    for item in response['Items']:
+        name = item['Key']
+        url = item['Url']
+        firstTime = item['FirstTime']
 
-table = dynamodb.Table("Novels")
+        currentChapters = set()
+        if 'Chapters' in item:
+            currentChapters = item['Chapters']
+        newChapters = getChapterLists(url)
 
-# print(table.creation_date_time)
-# print(table.item_count)
+        differences = newChapters - currentChapters
 
-with table.batch_writer() as batch:
-    for c in chapters:
-        batch.put_item(
-            Item={
-                'Id': str(uuid.uuid4()),
-                'chapters': c,
-                'Name': '凡人修仙记之仙界篇'
-            }
-        )
-
-# lookup all novels that requires check
-
-
-# compare each one by one
+        if firstTime or (len(differences) != 0) :
+            table.update_item(
+                Key={
+                    'Type': 'Novel',
+                    'Key':  name,
+                },
+                UpdateExpression='SET Chapters = :val1, FirstTime = :val2',
+                ExpressionAttributeValues={
+                    ':val1': newChapters,
+                    ':val2': False
+                }
+            )
+            if not firstTime: 
+                for difference in differences:
+                    chapterUrl = url + difference
+                    sendTelegramMessage("#小说 {}".format(chapterUrl))
+        else:
+            print("No new chapters")
