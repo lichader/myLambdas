@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 from urllib.request import urlopen, Request
 from boto3.dynamodb.conditions import Key, Attr
-import uuid, os, sys, requests, json, re, boto3
+import os, sys, requests, boto3
 
 chatId = os.environ['TELEGRAM_CHAT_ID']
 token = os.environ['TELEGRAM_TOKEN']
