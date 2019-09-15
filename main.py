@@ -3,14 +3,12 @@ from urllib.request import urlopen, Request
 from boto3.dynamodb.conditions import Key, Attr
 import os, sys, requests, boto3
 
-chatId = os.environ['TELEGRAM_CHAT_ID']
-token = os.environ['TELEGRAM_TOKEN']
+chatId = os.getenv('TELEGRAM_CHAT_ID', '')
+token = os.getenv('TELEGRAM_TOKEN', '')
 
 def getChapterLists(url):
-    req = Request(url)
-    req.add_header("User-Agent", "Magic Browser")
-    htmlContent = urlopen(req).read()
-    soup = BeautifulSoup(htmlContent, "html.parser")
+    mainPage = requests.get(url)
+    soup = BeautifulSoup(mainPage.content, "html.parser")
     allLi = soup.select("li")
 
     chapters = set()
@@ -28,7 +26,7 @@ def sendTelegramMessage(text):
     print("Send message: ", text)
     url = "https://api.telegram.org/bot{}/sendMessage".format(token)
     r = requests.post(url, json=requestBody)
-    print(r.status_code)
+    print(f"Message status code: {r.status_code}")
 
 def startWork(event, context):
     sys.setrecursionlimit(100000)
@@ -64,9 +62,20 @@ def startWork(event, context):
                     ':val2': False
                 }
             )
+
             if not firstTime: 
                 for difference in differences:
                     chapterUrl = url + difference
-                    sendTelegramMessage("#小说 {}".format(chapterUrl))
+
+                    chapterPage = requests.get(chapterUrl)
+                    chapterPage.encoding = 'gb18030'
+
+                    soup = BeautifulSoup(chapterPage.text, "html.parser")
+                    
+                    sendTelegramMessage(
+                        f"#小说 {soup.title.string} {chapterUrl}")
         else:
-            print("No new chapters")
+            print(f"{name} has no new chapters")
+
+if __name__ == "__main__":
+    startWork(None, None)
