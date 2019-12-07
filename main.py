@@ -14,7 +14,7 @@ def getChapterLists(url):
     chapters = set()
 
     for eachLi in allLi:
-        if (eachLi.a is not None):
+        if (eachLi.a is not None) and (eachLi.a['href'] != ""):
             chapters.add(eachLi.a['href'])
     return chapters
 
