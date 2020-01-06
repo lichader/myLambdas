@@ -7,7 +7,7 @@ chatId = os.getenv('TELEGRAM_CHAT_ID', '')
 token = os.getenv('TELEGRAM_TOKEN', '')
 
 def getChapterLists(url):
-    mainPage = requests.get(url)
+    mainPage = requests.get(url, verify=False)
     soup = BeautifulSoup(mainPage.content, "html.parser")
     allLi = soup.select("li")
 
@@ -67,7 +67,7 @@ def startWork(event, context):
                 for difference in differences:
                     chapterUrl = url + difference
 
-                    chapterPage = requests.get(chapterUrl)
+                    chapterPage = requests.get(chapterUrl, verify=False)
                     chapterPage.encoding = 'gb18030'
 
                     soup = BeautifulSoup(chapterPage.text, "html.parser")
