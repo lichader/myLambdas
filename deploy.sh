@@ -2,7 +2,7 @@
 
 set -e
 
-SITE_PACKAGES=$(pipenv --venv)/lib/python3.7/site-packages
+SITE_PACKAGES=$(pipenv --venv)/lib/python3.11/site-packages
 echo "Library Location: $SITE_PACKAGES"
 DIR=$(pwd)
 
